@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>挂号信校验码计算器</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .input-group { margin: 10px 0; }
+        label { display: inline-block; width: 180px; }
+        input, select { width: 200px; padding: 5px; }
+        #result-text { white-space: pre-wrap; margin-top: 20px; font-weight: bold; }
+        #result-barcode { margin-top: 20px; text-align: center; }
+        .barcode-container { display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
+        .barcode { display: block; margin: 0 auto; }
+        .barcode-number { font-size: 14px; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <h1>挂号信校验码计算器</h1>
+
+    <div class="input-group">
+        <label>信函类型（2位大写字母）:</label>
+        <input type="text" id="type" maxlength="2" placeholder="如 XA">
+    </div>
+
+    <div class="input-group">
+        <label>8位数字编号:</label>
+        <input type="text" id="digits" maxlength="8" placeholder="00000000">
+    </div>
+
+    <div class="input-group">
+        <label>省份代码:</label>
+        <input type="text" id="provinceCode" maxlength="2" placeholder="输入代码" style="width: 80px;">
+        <select id="provinceSelect" style="width: 200px;">
+            <option value="">请选择省份</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label>生成数量:</label>
+        <input type="number" id="count" value="1" min="1">
+    </div>
+
+    <button onclick="generateNumbers()">生成号码</button>
+
+    <div id="result-text"></div>  <!-- 纯文本结果 -->
+    <div id="result-barcode"></div>  <!-- 条码部分 -->
+
+    <script>
+        const provinces = [
+            {code: '11', name: '北京市'}, {code: '12', name: '天津市'}, {code: '13', name: '河北省'},
+            {code: '14', name: '山西省'}, {code: '15', name: '内蒙古自治区'}, {code: '21', name: '辽宁省'},
+            {code: '22', name: '吉林省'}, {code: '23', name: '黑龙江省'}, {code: '31', name: '上海市'},
+            {code: '32', name: '江苏省'}, {code: '33', name: '浙江省'}, {code: '34', name: '安徽省'},
+            {code: '35', name: '福建省'}, {code: '36', name: '江西省'}, {code: '37', name: '山东省'},
+            {code: '41', name: '河南省'}, {code: '42', name: '湖北省'}, {code: '43', name: '湖南省'},
+            {code: '44', name: '广东省'}, {code: '45', name: '广西壮族自治区'}, {code: '46', name: '海南省'},
+            {code: '50', name: '重庆市'}, {code: '51', name: '四川省'}, {code: '52', name: '贵州省'},
+            {code: '53', name: '云南省'}, {code: '54', name: '西藏自治区'}, {code: '61', name: '陕西省'},
+            {code: '62', name: '甘肃省'}, {code: '63', name: '青海省'}, {code: '64', name: '宁夏回族自治区'},
+            {code: '65', name: '新疆维吾尔自治区'}, {code: 'CN', name: '国际/港澳台'}
+        ];
+
+        const provinceSelect = document.getElementById('provinceSelect');
+        provinces.forEach(province => {
+            const option = document.createElement('option');
+            option.value = province.code;
+            option.textContent = `${province.name} (${province.code})`;
+            provinceSelect.appendChild(option);
+        });
+
+        provinceSelect.addEventListener('change', function() {
+            document.getElementById('provinceCode').value = this.value;
+        });
+
+        document.getElementById('provinceCode').addEventListener('input', function() {
+            const code = this.value;
+            const match = provinces.find(p => p.code === code);
+            provinceSelect.value = match ? code : '';
+        });
+
+        function calculateCheckDigit(digits) {
+            const weights = [8, 6, 4, 2, 3, 5, 9, 7];
+            const sum = digits.split('').reduce((acc, digit, index) => 
+                acc + parseInt(digit) * weights[index], 0);
+            
+            const g = sum % 11;
+            const p = (11 - g) ;
+            
+            if (p === 10) return '0';
+            if (p === 11) return '5';
+            return p.toString();
+        }
+
+        function generateNumbers() {
+            const type = document.getElementById('type').value.toUpperCase();
+            const baseDigits = document.getElementById('digits').value;
+            const provinceCode = document.getElementById('provinceCode').value;
+            const count = parseInt(document.getElementById('count').value);
+
+            if (!/^[A-Z]{2}$/.test(type)) {
+                alert('请输入有效的2位大写字母类型');
+                return;
+            }
+            if (!/^\d{8}$/.test(baseDigits)) {
+                alert('请输入有效的8位数字');
+                return;
+            }
+            if (!provinces.some(p => p.code === provinceCode)) {
+                alert('请选择有效的省份代码');
+                return;
+            }
+            if (isNaN(count) || count < 1) {
+                alert('请输入有效的生成数量');
+                return;
+            }
+
+            const results = [];
+            const startNumber = parseInt(baseDigits);
+
+            let resultText = "生成的号码：\n";
+            let barcodeHtml = '';
+
+            for (let i = 0; i < count; i++) {
+                const currentNumber = (startNumber + i) % 100000000;
+                const currentDigits = currentNumber.toString().padStart(8, '0');
+                const checkDigit = calculateCheckDigit(currentDigits);
+                const fullNumber = type + currentDigits + checkDigit + provinceCode;
+                results.push(fullNumber);
+
+                resultText += fullNumber + "\n";  // 纯文本结果
+
+                barcodeHtml += `
+                    <div class="barcode-container">
+                        <svg id="barcode${i}" class="barcode"></svg>
+                        <div class="barcode-number">${fullNumber}</div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('result-text').textContent = resultText;
+            document.getElementById('result-barcode').innerHTML = barcodeHtml;
+
+            // 生成条码
+            results.forEach((number, i) => {
+                JsBarcode(`#barcode${i}`, number, {
+                    format: "CODE128A",
+                    width: 2,
+                    height: 40 * 1.5,  // 高度增加30%
+                    displayValue: false
+                });
+            });
+        }
+    </script>
+</body>
+</html>
